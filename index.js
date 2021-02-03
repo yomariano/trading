@@ -1,34 +1,75 @@
+import dotenv from 'dotenv';
 import api from 'binance';
-import { processTickers } from './utils/utils';
+import { safePrice } from './utils/helpers';
+import trade from './trade';
+
+dotenv.config();
+
+const PRICE_LOG_LENGTH = 10; //
+const DETECTION_THRESHOLD = 1; // Detection threshold%
+const TAKE_PROFIT = 0.5; // Profit in %
+const STOP_LOSS = -1; // Stop loss detection in %
+const STOP_LOSS_LIMIT = -1.5; // Limit on stop loss in %
 
 let ws = new api.BinanceWS(true);
-let binanceApi = new api.BinanceRest({ key: 'a', secret: 'b' });
-// let currencies = [
-//   'BTC',
-//   'BNB',
-//   'ETH',
-//   'USDT',
-//   'DAI',
-//   'BUSD',
-//   'XLM',
-//   'XRP',
-//   'LINK',
-//   'GRT',
-//   '1INCH',
-//   'NGN',
-//   'DOT',
-//   'ADA',
-//   'LTC',
-//   'ONE',
-//   'UNI',
-//   'AAVE',
-//   'STX',
-// ];
+let binanceApi = new api.BinanceRest({ key: process.env.BINANCE_KEY, secret: process.env.BINANCE_SECRET });
+let usdtBalance = 0;
+let exchangeInfo;
+
+const updatePrices = async (prices, tickers) => {
+  // console.log('Tickers Length: ', tickers.length);
+  const usdtTickers = tickers.filter((t) => t.symbol.includes('USDT'));
+  // console.log('USDT Tickers Length: ', usdtTickers.length);
+
+  usdtTickers.forEach((ticker) => {
+    if (!prices[ticker.symbol]) {
+      prices[ticker.symbol] = {
+        priceLog: [],
+      };
+    }
+    prices[ticker.symbol].priceLog.unshift(parseFloat(ticker.bestAskPrice));
+    prices[ticker.symbol].priceLog.length = Math.min(prices[ticker.symbol].priceLog.length, PRICE_LOG_LENGTH);
+    // const max = Math.max(...prices[ticker.symbol].priceLog);
+    // const min = Math.min(...prices[ticker.symbol].priceLog);
+    const ratio = prices[ticker.symbol].priceLog[0] / prices[ticker.symbol].priceLog[prices[ticker.symbol].priceLog.length - 1];
+
+    if (
+      ratio > 1 + DETECTION_THRESHOLD / 100 && // Ratio is GT than specified
+      usdtBalance > 10 // && // Meets the minimum required balance on Binance
+      // prices[ticker.symbol].priceLog[0] > prices[ticker.symbol].priceLog[prices[ticker.symbol].priceLog.length - 1] // Overall trend is going up
+    ) {
+      const symbol = getSymbolData(ticker.symbol);
+      if (symbol.ocoAllowed && symbol.permissions.includes('SPOT')) {
+        trade(binanceApi, symbol, usdtBalance, TAKE_PROFIT, STOP_LOSS, STOP_LOSS_LIMIT);
+      }
+    }
+  });
+};
+
+const refreshUsdtBalance = async () => {
+  const account = await binanceApi.account();
+  usdtBalance = safePrice(parseFloat(account.balances.find((asset) => asset.asset === 'USDT').free), 8);
+};
+
+const getSymbolData = (symbol) => {
+  return exchangeInfo.symbols.find((s) => s.symbol === symbol);
+};
+const processUserData = (data) => {
+  if (data.e === 'outboundAccountPosition') {
+    console.log('Previous USDT Balance: ', usdtBalance);
+    let usdtData = data.B.find((balance) => balance.a === 'USDT');
+    if (usdtData) {
+      usdtBalance = safePrice(parseFloat(usdtData.f), 8);
+    }
+    console.log('USDT Balance updated: ', usdtBalance);
+  }
+};
 
 (async () => {
-  const info = await binanceApi.exchangeInfo();
-  let currencies = [...new Set(info.symbols.map((m) => [m.baseAsset, m.quoteAsset]).flat())];
-  let markets = info.symbols.filter((m) => currencies.includes(m.baseAsset) && currencies.includes(m.quoteAsset));
+  const prices = {};
+  await refreshUsdtBalance();
+  exchangeInfo = await binanceApi.exchangeInfo();
 
-  ws.onAllTickers((tickersData) => processTickers(markets, currencies, tickersData));
+  ws.onAllTickers((tickersData) => updatePrices(prices, tickersData));
+  ws.onUserData(binanceApi, processUserData);
 })();
