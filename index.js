@@ -10,6 +10,7 @@ const DETECTION_THRESHOLD = 15; // Detection threshold%
 const TAKE_PROFIT = 150; // Profit in %
 const STOP_LOSS = -20; // Stop loss detection in %
 const STOP_LOSS_LIMIT = -25; // Limit on stop loss in %
+const ASSET_TO_START = 'USDT';
 
 let ws = new api.BinanceWS(true);
 let binanceApi = new api.BinanceRest({ key: process.env.BINANCE_KEY, secret: process.env.BINANCE_SECRET });
@@ -18,7 +19,7 @@ let exchangeInfo;
 
 const updatePrices = async (prices, tickers) => {
   // console.log('Tickers Length: ', tickers.length);
-  const usdtTickers = tickers.filter((t) => t.symbol.includes('USDT'));
+  const usdtTickers = tickers.filter((t) => t.symbol.includes(ASSET_TO_START));
   // console.log('USDT Tickers Length: ', usdtTickers.length);
 
   usdtTickers.forEach((ticker) => {
@@ -48,7 +49,7 @@ const updatePrices = async (prices, tickers) => {
 
 const refreshUsdtBalance = async () => {
   const account = await binanceApi.account();
-  usdtBalance = safePrice(parseFloat(account.balances.find((asset) => asset.asset === 'USDT').free), 8);
+  usdtBalance = safePrice(parseFloat(account.balances.find((asset) => asset.asset === ASSET_TO_START).free), 8);
 };
 
 const getSymbolData = (symbol) => {
@@ -57,7 +58,7 @@ const getSymbolData = (symbol) => {
 const processUserData = (data) => {
   if (data.e === 'outboundAccountPosition') {
     console.log('Previous USDT Balance: ', usdtBalance);
-    let usdtData = data.B.find((balance) => balance.a === 'USDT');
+    let usdtData = data.B.find((balance) => balance.a === ASSET_TO_START);
     if (usdtData) {
       usdtBalance = safePrice(parseFloat(usdtData.f), 8);
     }
