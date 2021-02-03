@@ -6,10 +6,10 @@ import trade from './trade';
 dotenv.config();
 
 const PRICE_LOG_LENGTH = 10; //
-const DETECTION_THRESHOLD = 1; // Detection threshold%
-const TAKE_PROFIT = 0.5; // Profit in %
-const STOP_LOSS = -1; // Stop loss detection in %
-const STOP_LOSS_LIMIT = -1.5; // Limit on stop loss in %
+const DETECTION_THRESHOLD = 15; // Detection threshold%
+const TAKE_PROFIT = 150; // Profit in %
+const STOP_LOSS = -20; // Stop loss detection in %
+const STOP_LOSS_LIMIT = -25; // Limit on stop loss in %
 
 let ws = new api.BinanceWS(true);
 let binanceApi = new api.BinanceRest({ key: process.env.BINANCE_KEY, secret: process.env.BINANCE_SECRET });
