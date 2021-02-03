@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon --exec babel-node index.js",
+    "bull": "babel-node bull.js",
     "test": "mocha --require @babel/register 'test/**/**test.js'"
   },
   "author": "",
