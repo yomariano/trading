@@ -44,11 +44,13 @@ const getFilledPrice = (order) => {
   }
 };
 
+const coin = 'XRP';
+
 (async () => {
   const account = await binanceApi.account();
   const quantityUsdt = safePrice(parseFloat(account.balances.find((asset) => asset.asset === 'USDT').free), 3);
   console.log(`Balance USDT ${quantityUsdt}`);
-  const symbol = 'XRPUSDT';
+  const symbol = `${coin}USDT`;
   //   const orderPrice = 50.75;
   const buyOrder = await binanceApi.newOrder({ symbol, type: 'MARKET', side: 'BUY', quoteOrderQty: quantityUsdt });
 
