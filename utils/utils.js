@@ -107,12 +107,13 @@ const buildPathGain = (tickerData, path) => {
     if (pairData) {
       accumulatedRate *= pairData.bestBid;
     } else {
-      pairData = tickerData.find((t) => t.symbol == `${path[i + 1]}${path[i]}`);
+      symbol = `${path[i + 1]}${path[i]}`;
+      pairData = tickerData.find((t) => t.symbol == symbol);
       accumulatedRate *= 1 / pairData.bestAskPrice;
     }
     // console.log(symbol, '---', 'ASK: ', pairData.bestAskPrice, 'BID: ', pairData.bestBid);
   }
-  return (accumulatedRate - 1) * 100;
+  return (accumulatedRate - 1) * 100 - (path.length - 1) * 0.1;
 };
 
 const processTickers = async (markets, currencies, tickersData) => {
@@ -122,11 +123,11 @@ const processTickers = async (markets, currencies, tickersData) => {
   bf.run(0).forEach((op) => {
     let path = op.map((step) => currencies[step]);
     let pathGain = buildPathGain(tickersData, path);
-    console.log('Opportunity: ', path, 'Rate: ', pathGain);
+    console.log(new Date(), ' - Opportunity: ', path, 'Rate: ', `${pathGain}%`);
   });
 };
 
-const createGraph = (markets, currencies, tickersData, fee = 0.00075) => {
+const createGraph = (markets, currencies, tickersData, fee = 0.001) => {
   let graph = new DiGraph();
   currencies.map((n, i) => graph.addNode(i, n));
   tickersData.forEach((ticker) => {
