@@ -1,5 +1,8 @@
 import { getFilledPrice, safePrice } from './utils/helpers';
-import { ValueProcessor } from 'binance';
+//import { ValueProcessor } from 'binance';
+
+import pkg from 'binance';
+const { ValueProcessor } = pkg;
 
 const waitForOrder = async (binanceApi, order) => {
   let anOrder = order;
