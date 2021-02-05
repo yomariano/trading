@@ -1,8 +1,8 @@
 import dotenv from 'dotenv';
 import api from 'binance/lib/binance.js';
 import { safePrice } from './utils/helpers';
-import trade from './trade';
-import indicators from 'technicalindicators';
+//import trade from './trade';
+import {RSI,SMA} from 'technicalindicators';
 
 
 
@@ -19,79 +19,8 @@ let ws = new api.BinanceWS(true);
 let binanceApi = new api.BinanceRest({ key: process.env.BINANCE_KEY, secret: process.env.BINANCE_SECRET });
 let usdtBalance = 0;
 let exchangeInfo;
+let klines = {};
 
-const updatePrices = async (binanceApi,prices, tickers) => {
-  // console.log('Tickers Length: ', tickers.length);
-  const usdtTickers = tickers.filter((t) => t.symbol.includes(ASSET_TO_START));
-  // console.log('USDT Tickers Length: ', usdtTickers.length);
-
-  usdtTickers.forEach((ticker) => {
-    if (!prices[ticker.symbol]) {
-      prices[ticker.symbol] = {
-        priceLog: [],
-        rsi: null
-      };
-    }
-   
-    prices[ticker.symbol].rsi = await getRsi(binanceApi, ticker.symbol, "1m");
-
-    prices[ticker.symbol].priceLog.unshift(parseFloat(ticker.bestAskPrice));
-    prices[ticker.symbol].inputRsi.values.unshift(parseFloat(ticker.currentClose));
-    prices[ticker.symbol].priceLog.length = Math.min(prices[ticker.symbol].priceLog.length, PRICE_LOG_LENGTH);
-    // const max = Math.max(...prices[ticker.symbol].priceLog);
-    // const min = Math.min(...prices[ticker.symbol].priceLog);
-    const ratio = prices[ticker.symbol].priceLog[0] / prices[ticker.symbol].priceLog[prices[ticker.symbol].priceLog.length - 1];
-
-    if (
-      ratio > 1 + DETECTION_THRESHOLD / 100 && // Ratio is GT than specified
-      usdtBalance > 10 // && // Meets the minimum required balance on Binance
-      // prices[ticker.symbol].priceLog[0] > prices[ticker.symbol].priceLog[prices[ticker.symbol].priceLog.length - 1] // Overall trend is going up
-    ) {
-      const symbol = getSymbolData(ticker.symbol);
-      if (symbol.ocoAllowed && symbol.permissions.includes('SPOT')) {
-        //trade(binanceApi, symbol, usdtBalance, TAKE_PROFIT, STOP_LOSS, STOP_LOSS_LIMIT);
-      }
-    }
-  });
-};
-
-const timeIndex = 0,
-    oIndex = 1,
-    hIndex = 2,
-    lIndex = 3,
-    cIndex = 4,
-    vIndex = 5
-
-const detachSource = (ohlcv) => {
-  let source = []
-  source["open"] = []
-  source["high"] = []
-  source["low"] = []
-  source["close"] = []
-  source["volume"] = []
-  if (ohlcv.length == 0) {
-      return source
-  }
-  ohlcv.forEach(data => {
-      source["open"].push(data[oIndex])
-      source["high"].push(data[hIndex])
-      source["low"].push(data[lIndex])
-      source["close"].push(data[cIndex])
-      source["volume"].push(data[vIndex])
-  })
-  return source
-}
-
-const getRsi = async (binanceApi, symbol, interval) => {
-    const values = await binanceApi.klines(symbol, interval);
-   // let source = detachSource(values)
-    let rsiInput = {
-      values: values,
-      period: rsiLength
-  }
-  let res =  await indicators.RSI.calculate(rsiInput);
-  return res;
-}
 
 const refreshUsdtBalance = async () => {
   const account = await binanceApi.account();
@@ -112,12 +41,41 @@ const processUserData = (data) => {
   }
 };
 
+const populateKlinesForPair = async (klines, pair) => {
+  console.log(`Requesting historical klines for pair ${pair}`);
+  const historicKlines = await binanceApi.klines({ symbol: pair, interval: '1m' });
+  historicKlines.forEach((kline) => (klines[pair][kline.openTime] = kline));
+};
+
+const calculateRsi = (data, klines) => {
+  if (!klines[data.symbol]) {
+    klines[data.symbol] = [];
+    populateKlinesForPair(klines, data.symbol);
+  }
+
+  const closePrices = Object.keys(klines[data.symbol])
+  .sort()
+  .map((k) => parseFloat(klines[data.symbol][k].close))
+
+  klines[data.symbol][data.kline.startTime] = data.kline;
+  const rsiInput = {
+    values: closePrices,
+    period: 14,
+  };
+  // console.log(rsiInput);
+  const res = RSI.calculate(rsiInput);
+  const sma99 = SMA.calculate({period : 99, values : closePrices});
+  const sma25 = SMA.calculate({period : 25, values : closePrices});
+  console.log(data.symbol, ' RSI: ', res[res.length - 1]);
+  console.log(data.symbol, ' SMA99: ', sma99[sma99.length - 1]);
+  console.log(data.symbol, ' SMA25: ', sma25[sma25.length - 1]);
+};
+
 (async () => {
   const prices = {};
   await refreshUsdtBalance();
   exchangeInfo = await binanceApi.exchangeInfo();
+  const symbol = "DOGEUSDT";
 
-  //ws.onAllTickers((tickersData) => updatePrices(binanceApi,prices, tickersData));
-  ws.onKline()
-  ws.onUserData(binanceApi, processUserData);
+  ws.onKline(symbol, "1m", (data) => calculateRsi(data, klines));
 })();
