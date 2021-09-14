@@ -13,10 +13,13 @@
     <script>
 
     function letsGo() {
+        const PUBNUB_SUSCRIBE = process.env.PUBNUB_SUSCRIBE;
+        const PUBNUB_PUBLISH = process.env.PUBNUB_PUBLISH;
         const target = document.getElementById('target');
         // Update this block with your publish/subscribe keys
         pubnub = new PubNub({
-    
+            publishKey: PUBNUB_PUBLISH,
+            subscribeKey: PUBNUB_SUSCRIBE
         })
 
         pubnub.subscribe({
