@@ -6,7 +6,8 @@
   "scripts": {
     "start": "nodemon --exec babel-node index.js",
     "bull": "babel-node bull.js",
-    "test": "mocha --require @babel/register 'test/**/**test.js'"
+    "test": "mocha --require @babel/register 'test/**/**test.js'",
+    "lala": "nodemon --exec babel-node testing.js"
   },
   "author": "",
   "license": "ISC",
@@ -14,6 +15,11 @@
     "@babel/runtime": "^7.12.5",
     "binance": "^1.3.5",
     "dotenv": "^8.2.0",
+    "http": "0.0.1-security",
+    "https": "^1.0.0",
+    "mongodb": "^4.1.1",
+    "pubnub": "^4.33.0",
+    "simple-websocket": "^9.1.0",
     "technicalindicators": "^3.1.0"
   },
   "devDependencies": {
